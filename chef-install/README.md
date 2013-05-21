@@ -153,15 +153,19 @@ repositories at <http://github.com/rcbops-cookbooks>.
 To download the full suite of rcbops cookbooks, use the following git
 command:
 
-  /root# git clone https://github.com/rcbops/chef-cookbooks
+~~~~
+    /root# git clone https://github.com/rcbops/chef-cookbooks
+~~~~
 
 The cookbooks are branched based on OpenStack release.  To install
 grizzly, check out the grizzly branch and update submodules:
 
-  /root# cd chef-cookbooks
-  /root/chef-cookbooks# git checkout grizzly
-  /root/chef-cookbooks# git submodule init
-  /root/chef-cookbooks# git submodule update
+~~~~
+    /root# cd chef-cookbooks
+    /root/chef-cookbooks# git checkout grizzly
+    /root/chef-cookbooks# git submodule init
+    /root/chef-cookbooks# git submodule update
+~~~~
 
 Note also that you are welcome to fork your own cookbooks, update your
 submodules and pull-request fixes or enhancements to the rcbops
@@ -171,10 +175,12 @@ everyone.
 Once you have downloaded all the cookbooks from github, they should be
 uploaded to the chef server, along with the defined roles:
 
-  /root/chef-cookbooks# knife cookbook upload -a -o cookbooks
-    ... much cookbook uploadage ...
-  /root/chef-cookbooks# knife role from file roles/*rb
-    ... much role creation ...
+~~~~
+    /root/chef-cookbooks# knife cookbook upload -a -o cookbooks
+      ... much cookbook uploadage ...
+    /root/chef-cookbooks# knife role from file roles/*rb
+      ... much role creation ...
+~~~~
 
 Installing chef client
 ----------------------
@@ -236,28 +242,30 @@ both be listening on the same network.
 
 This can perhaps best be illustrated with an example environment:
 
-  "override_attributes": {
-      "nova": {
-          "networks": [
-              {
-                  "label": "public",
-                  "bridge_dev": "eth1",
-                  "dns2": "8.8.4.4",
-                  "num_networks": "1",
-                  "ipv4_cidr": "192.168.222.0/24",
-                  "network_size": "255",
-                  "bridge": "br100",
-                  "dns1": "8.8.8.8"
-              }
-          ]
-      },
-      "mysql": {
-          "allow_remote_root": true,
-          "root_network_acl": "%"
-      },
-      "osops_networks": {
-          "nova": "192.168.122.0/24",
-          "public": "192.168.122.0/24",
-          "management": "192.168.122.0/24"
-      }
-  }
+~~~~
+    "override_attributes": {
+        "nova": {
+            "networks": [
+                {
+                    "label": "public",
+                    "bridge_dev": "eth1",
+                    "dns2": "8.8.4.4",
+                    "num_networks": "1",
+                    "ipv4_cidr": "192.168.222.0/24",
+                    "network_size": "255",
+                    "bridge": "br100",
+                    "dns1": "8.8.8.8"
+                }
+            ]
+        },
+        "mysql": {
+            "allow_remote_root": true,
+            "root_network_acl": "%"
+        },
+        "osops_networks": {
+            "nova": "192.168.122.0/24",
+            "public": "192.168.122.0/24",
+            "management": "192.168.122.0/24"
+        }
+    }
+~~~~
