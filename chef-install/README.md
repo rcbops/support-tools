@@ -60,3 +60,22 @@ Interesting environment variables:
 * COOKBOOK_PATH (defaults to ${HOME}/chef-cookbooks)
 
 You probably want to make an environment at this point.
+
+install-chef-client
+-------------------
+
+This is a bit hackish, and makes a couple of naive assumptions. It
+assumes that the user you are logged in with has passwordless ssh key
+auth set up (or you are willing to push the appropriate buttons when
+prompted) and is sudo NOPASSWD:ALL.
+
+This is likely not true on your systems, so perhaps this script is
+more useful as an example, and not so much as The Right Way To Do It.
+
+It also assumes that you are running the script from the chef server, (unless CHEF_URL is overridden) as it derives the CHEF_URL the same way it's defaulted in "install-chef-server.sh" (443 on the ip of the same interface that the default gateway is on).
+
+Interesting environment variables:
+
+* CLIENT_VERSION: defaults to 11.2.0-1
+* ENVIRONMENT: defaults to _default
+* CHEF_URL: defaults to same as install-chef-server.sh
