@@ -1,11 +1,5 @@
 #!/bin/bash
 
-set -e
-set -u
-set -x
-
-COOKBOOK_BRANCH=${COOKBOOK_BRANCH:-grizzly}
-
 # if we haven't logged off yet, and our path doesn't point to
 # /opt/whatever/bin, we'll try and make it go by sourcing
 # the profile we bumped it into
@@ -14,6 +8,11 @@ if [ -e ${HOME}/.bash_profile ]; then
     source ${HOME}/.bash_profile
 fi
 
+set -e
+set -u
+set -x
+
+COOKBOOK_BRANCH=${COOKBOOK_BRANCH:-grizzly}
 
 # Figure out what OS we are running, to decide if we
 # are going to run apt or yum, basically.  Cut/pasted out of the
