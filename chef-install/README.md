@@ -41,3 +41,22 @@ interesting.
 
 You must log off and back on as the target user in order to be able to
 use "knife" commands
+
+install-cookbooks
+-----------------
+
+This appropriatly named command can be used to install the rcbops
+cookbooks. You should log off and back on to ensure your knife command
+works, if you got to this point by running the above command.
+
+By default, it installs and uploads the "grizzly" cookbooks to the
+currently knife configured chef server. Make sure you are pointing to
+the right place. This script makes no attempt to protect you from
+yourself. You have been warned.
+
+Interesting environment variables:
+
+* COOKBOOK_BRANCH (folsom | grizzly, defaults to grizzly)
+* COOKBOOK_PATH (defaults to ${HOME}/chef-cookbooks)
+
+You probably want to make an environment at this point.
