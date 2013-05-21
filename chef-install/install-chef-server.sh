@@ -128,7 +128,6 @@ ${HOMEDIR}/.chef/chef-validator.pem
 EOF
         # setup the path
         echo 'export PATH=${PATH}:/opt/chef-server/bin' >> ${HOMEDIR}/.bash_profile
-        export PATH=${PATH}:/opt/chef-server/bin
     fi
 
     # these are only returned on a run where we actually install chef-server
