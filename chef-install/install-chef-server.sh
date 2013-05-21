@@ -45,6 +45,7 @@ fi
 CHEF_SERVER_VERSION=${CHEF_SERVER_VERSION:-11.0.4-1}
 
 if [[ $OS_TYPE = "ubuntu" ]]; then
+    apt-get update -y --force-yes
     locale-gen en_US.UTF-8
     apt-get install -y --force-yes lsb-release
     cp /etc/resolv.conf /tmp/rc
