@@ -136,7 +136,7 @@ Details on installing the open source Chef server can be found in the
 The "install-chef-server.sh" script in this repo can also be used to
 install chef server.
 
-If installing from the Opscode, don't forget to [set up a user](http://docs.opscode.com/chef/install_workstation.html]!
+If installing from the Opscode, don't forget to [set up a user](http://docs.opscode.com/chef/install_workstation.html)!
 
 Uploading cookbooks
 -------------------
@@ -240,7 +240,8 @@ multiple networks.  For example, by setting the same cidr for both the
 "nova" network and the "management" network, syslog and rabbitmq will
 both be listening on the same network.
 
-This can perhaps best be illustrated with an example environment:
+This can perhaps best be illustrated with an example environment.  If
+one were to make an environment with the following override_attributes:
 
 ~~~~
     "override_attributes": {
@@ -269,3 +270,234 @@ This can perhaps best be illustrated with an example environment:
         }
     }
 ~~~~
+
+This environment would create a cluster that had all three networks
+folded on to one physical network.  That network would be the network
+that has an ip address in the 192.168.122.0/24 range.
+
+All internal nova services, all API endpoints, and all monitoring and
+management functions would run over the 192.168.122.0/24 network.
+
+The nova/network section would cause VMs to be brought up on a
+192.168.222.0 network on eth1 brought into a bridge called "br100".
+Nova would bring up the bridge and insert eth1 itself, so the host
+itself could (and should) have eth1 left unconfigured.
+
+To create a cluster with this minimal configuration, the steps
+required would be to create the environment expression this
+configuration, assigning roles to nodes, and running chef to converge
+the cluster.
+
+### Creating an Environment
+
+An environment can be simply created by using the "knife environment
+create" command.  To create an environment named "grizzly", execute
+the command "knife environment create grizzly".  This will allow
+direct editing of the environment, and give the ability to enter the
+"override_attributes" specified above.
+
+### Setting Roles and Converging Cluster
+
+In the simplest case, using a single non-HA infrastructure node, the
+roles "single-controller" can be used.  Modify the infrastructure node
+in chef to add it to the "grizzly" environment, and add the
+"single-controller" role to that node's run_list using either the chef
+web ui or the "knife node edit" command.
+
+Once the role and environment are set, run "chef-client" on the
+infrastructure node.  It will probably take a significant amount of
+time to run the client, as there are many packages, configuration
+changes, and dependencies to work through.
+
+The infrastructure node must be installed before any compute nodes are
+installed, however.  Until the infrastructure node has completed its
+chef run, information about endpoints will not be published back to
+chef, and compute nodes will not know locate and connect to
+infrastructure services.
+
+Once the infrastructure node has completed the installation, compute
+nodes can be installed.  Add the compute nodes in question to the
+environment, and add the role "single-compute" to the run_list.
+
+Multiple compute nodes can be installed in parallel.
+
+HA Infrastructure
+-----------------
+
+The HA infrastructure role changes the single infrastructure node into
+a pair of infrastructure nodes that provide HA with VRRP, monitored by
+keepalived. Every major service has a VIP of its own, and services are
+failed over on a service-by-service basis.
+
+One service includes haproxy.  This is used to load-balance (for those
+web services in OpenStack that can be run in an active/active
+configuration) or active/passive for those that cannot.  The front-end
+ip of the haproxy pair is itself a VRRP VIP.
+
+Another service is rabbitmq.  Until version 3.1 is generally available
+from distribution vendors, we will be using a VRRP for HA (but not
+fault tolerance -- some messages will be lost, likely resulting in
+failures of Nova API actions).  Once better mirrored queue clustering
+is available in rabbitmq 3.1, we will switch to native rabbitmq
+clustering for HA and fault tolerance.
+
+The last VIPped service is MySQL.  MySQL is configured by the
+cookbooks in a master/master configuration with an active/passive
+non-load balanced VIP.
+
+To set up a configuration with a HA infra node, allocate ip addresses
+for the three VIPs on an interface available on both infra nodes.
+Then add the appropriate environment settings in override_attributes (in
+addition to those specified above):
+
+~~~~
+    "override_attributes": {
+        "vips": {
+            "mysql-db": "<mysql vip>",
+            "rabbitmq-queue": "<rabbit vip>",
+            "nova-api": "<haproxy vip>",
+            "nova-ec2-public": "<haproxy vip>",
+            "keystone-admin-api": "<haproxy vip>",
+            "keystone-service-api": "<haproxy vip>",
+            "cinder-api": "<haproxy vip>",
+            "glance-api": "<haproxy vip>",
+            "glance-registry": "<haproxy vip>",
+            "nova-novnc-proxy": "<haproxy vip>",
+            "nova-xvpvnc-proxy": "<haproxy vip>",
+            "horizon-dash": "<haproxy vip>",
+            "horizon-dash_ssl": "<haproxy vip>"
+        },
+        "nova": {
+            "networks": [
+                {
+                    "label": "public",
+                    "bridge_dev": "eth1",
+                    "dns2": "8.8.4.4",
+                    "num_networks": "1",
+                    "ipv4_cidr": "192.168.222.0/24",
+                    "network_size": "255",
+                    "bridge": "br100",
+                    "dns1": "8.8.8.8"
+                }
+            ]
+        },
+        "mysql": {
+            "allow_remote_root": true,
+            "root_network_acl": "%"
+        },
+        "osops_networks": {
+            "nova": "192.168.122.0/24",
+            "public": "192.168.122.0/24",
+            "management": "192.168.122.0/24"
+        }
+    }
+~~~~
+
+The only addition to this environment is the section called "vips".
+
+Like the single-controller configuration, this configuration requires
+specific ordering to allow chef to configure and publish cluster
+information such that other nodes can find it.
+
+Add the two infrastructure nodes to the appropriate environment, and
+set the run_list of one to "ha-controller1" and the other to
+"ha-controller2".
+
+* Run chef-client on the node with the "ha-controller1" role
+* Run chef-client on the "ha-controller2" node
+* Run chef-client on the "ha-controller1" node again
+
+This will configure the load balancing and VRRP on both sides, as well
+as the MySQL master/master replication.
+
+Once these steps have run successfully, compute nodes can be brought
+online in parallel with the "single-controller" role, as in the
+previous configuration.
+
+Customizing the Environment
+---------------------------
+
+Almost every component of the OpenStack installation can be tweaked by
+using environment settings. To a large degree, these customizations
+are detailed in the README files of each individual cookbook, found
+[on the github repo for that cookbook](http://github.com/rcbops-cookbooks).
+
+That said, some of the customizations are more common than others.
+
+Some override_attributes typically used include:
+
+~~~~
+    "rabbitmq": {
+        "tcp_keepalive": true,
+        "use_distro_version": true
+    }
+~~~~
+
+These settings are used to fail client connections more rapidly on HA
+failover, and to prefer the distro rabbitmq packaging over the
+upstream rabbitmq vendor package.
+
+~~~~
+    "nova": {
+        "config": {
+            "ram_allocation_ratio": "1",
+            "cpu_allocation_ratio": "16"
+        },
+        "libvirt": {
+            "vncserver_listen": "0.0.0.0",
+            "virt_type": "kvm"
+        }
+~~~~
+
+The nova/config options allow specific overcommit ratios for ram and
+CPU.  These might be adjusted for a particular workload.
+
+The nova/libvirt/vncserver_listen option of "0.0.0.0" allows the vnc
+listener to wildcard bind on the compute hosts. Unless strictly
+controlling iptables, this could allow unexpected vnc access to VM
+instances, but is necessary on the OpenStack Folsom release for
+instance migration to work. It has not been verified yet if this
+override is required for migration on the Grizzly release.
+
+The last setting, nova/libvirt/virt_type will allow for switching from
+"kvm" (the default libvirt virtualization type) to "qemu", which is
+useful for installing a cluster in an environment without
+virtualization (cloud in a cloud, or test clusters in desktop virt
+products that do not expose nested vmx, for example).
+
+~~~~
+    "osops": {
+         "do_package_upgrades": true
+    }
+~~~~
+
+By default, the chef cookbooks will only install the OpenStack
+packages, they will not upgrade them if they become available from the
+upstream vendor repository.
+
+Setting osops/do_package_upgrades to "true" will cause any updated
+packages to be installed when they become available.  Note that (for
+the Ubuntu cloud archive repository, anyway) this will likely not
+cause wholesale upgrades between OpenStack releases ("Grizzly" to
+"Havana" for example), but just point releases on the existing
+version.
+
+Be aware this has the possibility of making your cluster go sideways.
+
+~~~~
+    "glance": {
+        "image_upload": true,
+        "images": [
+            "cirros", "precise"
+        ]
+    }
+~~~~
+
+By default, on initial installation, no images will be uploaded into
+glance. Using the glance/image_upload setting, along with the
+glance/images setting, some convenience images can be uploaded at the
+time of installation. This can sometimes be convenient when spinning
+up clusters for automated testing.
+
+The chef cookbooks currently understand convenience images for
+"cirros", "precise", "oneiric", and "natty".
