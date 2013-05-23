@@ -47,12 +47,12 @@ CHEF_SERVER_VERSION=${CHEF_SERVER_VERSION:-11.0.4-1}
 if [[ $OS_TYPE = "ubuntu" ]]; then
     apt-get update -y --force-yes
     locale-gen en_US.UTF-8
-    apt-get install -y --force-yes lsb-release
+    apt-get install -y --force-yes lsb-release curl wget
     cp /etc/resolv.conf /tmp/rc
     apt-get remove --purge resolvconf -y --force-yes
     cp /tmp/rc /etc/resolv.conf
 elif [[ $OS_TYPE = "redhat" ]] || [[ $OS_TYPE = "centos" ]] || [[ $OS_TYPE = "fedora" ]]; then
-    yum -y install curl
+    yum -y install curl wget
 else
     echo "Your distribution is not supported"
     exit 1
