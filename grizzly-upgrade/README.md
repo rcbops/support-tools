@@ -108,7 +108,7 @@ keystone server in keystone/db/password.
 ## Step 4
 
 Now, run chef-client on each of the compute nodes, either serially or
-in paralle.
+in parallel.
 
 ## Step 5
 
