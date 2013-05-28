@@ -45,7 +45,7 @@ use "knife" commands
 install-cookbooks
 -----------------
 
-This appropriatly named command can be used to install the rcbops
+This appropriately named command can be used to install the rcbops
 cookbooks. You should log off and back on to ensure your knife command
 works, if you got to this point by running the above command.
 
