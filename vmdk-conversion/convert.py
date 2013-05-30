@@ -10,6 +10,167 @@ import guestfs
 import hivex
 
 
+class SimpleHivex(object):
+    """
+    Simple hivex class to make it easier to jank around hives
+    """
+    # Just a key without a value
+    REG_NONE = 0
+    # A Windows string (encoding is unknown, but often UTF16-LE)
+    REG_SZ = 1
+    # A Windows string that contains %env% (environment variable expansion)
+    REG_EXPAND_SZ = 2
+    # A blob of binary
+    REG_BINARY = 3
+    # DWORD (32 bit integer), little endian
+    REG_DWORD = 4
+    # DWORD (32 bit integer), big endian
+    REG_DWORD_BIG_ENDIAN = 5
+    # Symbolic link to another part of the registry tree
+    REG_LINK = 6
+    # Multiple Windows strings.  See http://blogs.msdn.com/oldnewthing/archive/2009/10/08/9904646.aspx
+    REG_MULTI_SZ = 7
+    # Resource list
+    REG_RESOURCE_LIST = 8
+    # Resource descriptor
+    REG_FULL_RESOURCE_DESCRIPTOR = 9
+    # Resouce requirements list
+    REG_RESOURCE_REQUIREMENTS_LIST = 10
+    # QWORD (64 bit integer), unspecified endianness but usually little endian
+    REG_QWORD = 11
+
+    def __init__(self, hive_path):
+        self.h = hivex.Hivex(hive_path, write=True)
+        self.at_root = True
+        self.current_node = self.h.root()
+        self.current_path = '/'
+
+        classname = self.__class__.__name__.lower()
+        if __name__ != '__main__':
+            self.logger = logging.getLogger('%s.%s' % (__name__, classname))
+        else:
+            self.logger = logging.getLogger(classname)
+
+        select = self.h.node_get_child(self.current_node, 'Select')
+        if select is None:
+            self.ccs = 'CurrentControlSet'
+            self.logger.debug('Not a system hive')
+        else:
+            ccs = self.h.node_get_value(select, 'Current')
+            self.ccs = 'ControlSet%03d' % (self.h.value_dword(ccs))
+            self.logger.debug('System hive: CCS: %s' % self.ccs)
+
+    def navigate_to(self, key_path, create=False):
+        keys = key_path.split('/')
+        if keys[0] == '':
+            keys.pop(0)
+            self.at_root = True
+            self.current_node = self.h.root()
+            self.current_path = '/'
+
+        if self.at_root is True:
+            # transparently replace ccs with the actual
+            # control set
+            if keys[0].lower() == 'currentcontrolset':
+                keys[0] = self.ccs
+
+        for key in keys:
+            next_node = self.h.node_get_child(self.current_node, key)
+            if next_node is None:
+                if create is True:
+                    self.add_subkey(key)
+                else:
+                    raise ValueError('No key %s' % key)
+            else:
+                self.current_node = next_node
+                self.at_root = False
+
+            self.current_path += key + '/'
+
+    def has_subkey(self, name):
+        sk = self.h.node_get_child(self.current_node, name)
+        if sk is None:
+            return False
+        return True
+
+    def delete_subkey(self, name):
+        if not self.has_subkey(name):
+            return
+
+        self.logger.debug('deleting subkey %s%s' % (self.current_path, name))
+
+        gone = self.h.node_get_child(self.current_node, name)
+        self.h.node_delete_child(gone)
+
+    def add_subkey(self, name):
+        if self.has_subkey(name):
+            self.navigate_to(name)
+        else:
+            self.logger.debug('adding subkey %s%s' % (self.current_path, name))
+            sk = self.h.node_add_child(self.current_node, name)
+            if sk is None:
+                raise RuntimeError('Cannot add subkey: %s' % (name, ))
+
+            self.current_node = sk
+            self.at_root = False
+
+    def _add_value(self, value_type, key, value):
+        val = None
+
+        if value_type == SimpleHivex.REG_SZ:
+            val = value.encode('utf-16le') + '\0\0'
+        elif value_type == SimpleHivex.REG_EXPAND_SZ:
+            val = value.encode('utf-16le') + '\0\0'
+        elif value_type == SimpleHivex.REG_DWORD:
+            val = struct.pack('I', value)
+        else:
+            raise ValueError('Unknown value type: %s' % (value_type, ))
+
+        new_value = {'key': key,
+                     't': value_type,
+                     'value': val}
+
+        self.logger.debug('setting %s%s to %s' % (
+                self.current_path, key, str(value)))
+
+        self.h.node_set_value(self.current_node, new_value)
+
+    def has_value(self, key):
+        if self.h.node_get_value(self.current_node, key) is None:
+            return False
+        return True
+
+    def _get_val(self, what, key):
+        val = self.h.node_get_value(self.current_node, key)
+        if val is None:
+            return None
+
+        if what == SimpleHivex.REG_SZ:
+            return self.h.value_string(val)
+        elif what == SimpleHivex.REG_DWORD:
+            return self.h.value_dword(val)
+        else:
+            raise ValueError('Unknown type: %d' % what)
+
+    def get_string(self, key):
+        return self._get_val(SimpleHivex.REG_SZ, key)
+
+    def get_dword(self, key):
+        return self._get_val(SimpleHivex.REG_DWORD, key)
+
+    def add_reg_sz(self, key, value):
+        return self._add_value(SimpleHivex.REG_SZ, key, value)
+
+    def add_reg_expand_sz(self, key, value):
+        return self._add_value(SimpleHivex.REG_EXPAND_SZ, key, value)
+
+    def add_reg_dword(self, key, value):
+        return self._add_value(SimpleHivex.REG_DWORD, key, value)
+
+    def commit(self):
+        self.h.commit(None)
+
+
 def active_guestfs(func):
     def f(self, *args, **kwargs):
         if self.gfs is None:
@@ -69,113 +230,6 @@ def mounted_devices(func):
     return f
 
 
-class SimpleHivex(object):
-    """
-    Simple hivex class to make it easier to wank with hives
-    """
-    # Just a key without a value
-    REG_NONE = 0
-    # A Windows string (encoding is unknown, but often UTF16-LE)
-    REG_SZ = 1
-    # A Windows string that contains %env% (environment variable expansion)
-    REG_EXPAND_SZ = 2
-    # A blob of binary
-    REG_BINARY = 3
-    # DWORD (32 bit integer), little endian
-    REG_DWORD = 4
-    # DWORD (32 bit integer), big endian
-    REG_DWORD_BIG_ENDIAN = 5
-    # Symbolic link to another part of the registry tree
-    REG_LINK = 6
-    # Multiple Windows strings.  See http://blogs.msdn.com/oldnewthing/archive/2009/10/08/9904646.aspx
-    REG_MULTI_SZ = 7
-    # Resource list
-    REG_RESOURCE_LIST = 8
-    # Resource descriptor
-    REG_FULL_RESOURCE_DESCRIPTOR = 9
-    # Resouce requirements list
-    REG_RESOURCE_REQUIREMENTS_LIST = 10
-    # QWORD (64 bit integer), unspecified endianness but usually little endian
-    REG_QWORD = 11
-
-    def __init__(self, hive_path):
-        self.h = hivex.Hivex(hive_path, write=True)
-        self.at_root = True
-        self.current_node = self.h.root()
-
-        classname = self.__class__.__name__.lower()
-        if __name__ != '__main__':
-            self.logger = logging.getLogger('%s.%s' % (__name__, classname))
-        else:
-            self.logger = logging.getLogger(classname)
-
-        select = self.h.node_get_child(self.current_node, 'Select')
-        if select is None:
-            self.ccs = 'CurrentControlSet'
-            self.logger.debug('Not a system hive')
-        else:
-            ccs = self.h.node_get_value(select, 'Current')
-            self.ccs = 'ControlSet%03d' % (self.h.value_dword(ccs))
-            self.logger.debug('System hive: CCS: %s' % self.ccs)
-
-    def navigate_to(self, key_path):
-        keys = key_path.split('/')
-        if keys[0] == '':
-            keys.pop(0)
-            self.at_root = True
-            self.current_node = self.h.root()
-
-        if self.at_root is True:
-            if keys[0] == 'CurrentControlSet':
-                keys[0] = self.ccs
-
-        for key in keys:
-            self.current_node = self.h.node_get_child(self.current_node, key)
-            if self.current_node is None:
-                raise ValueError('No key %s' % key)
-            else:
-                self.at_root = False
-
-    def add_subkey(self, name):
-        sk = self.h.node_get_child(self.current_node, name)
-        if sk is None:
-            sk = self.h.node_add_child(self.current_node, name)
-            if sk is None:
-                raise RuntimeError('Cannot add subkey: %s' % (name, ))
-
-        self.current_node = sk
-        self.at_root = False
-
-    def _add_value(self, value_type, key, value):
-        val = None
-
-        if value_type == SimpleHivex.REG_SZ or \
-                value_type == SimpleHivex.REG_EXPAND_SZ:
-            val = value.encode('utf-16le')
-        elif value_type == SimpleHivex.REG_DWORD:
-            val = struct.pack('I', value)
-        else:
-            raise ValueError('Unknown value type: %s' % (value_type, ))
-
-        new_value = {'key': key,
-                     't': value_type,
-                     'value': val}
-
-        self.h.node_set_value(self.current_node, new_value)
-
-    def add_reg_sz(self, key, value):
-        return self._add_value(SimpleHivex.REG_SZ, key, value)
-
-    def add_reg_expand_sz(self, key, value):
-        return self._add_value(SimpleHivex.REG_EXPAND_SZ, key, value)
-
-    def add_reg_dword(self, key, value):
-        return self._add_value(SimpleHivex.REG_DWORD, key, value)
-
-    def commit(self):
-        self.h.commit(None)
-
-
 class Image(object):
     """
     Simple image class to simplify the tasks of image conversion
@@ -219,6 +273,10 @@ class Image(object):
         self.variant = self.gfs.inspect_get_product_variant(self.root)
         self.mountpoints = dict(self.gfs.inspect_get_mountpoints(self.root))
 
+        if self.ostype == 'windows':
+            self.systemroot = self.gfs.inspect_get_windows_systemroot(self.root)
+
+
         return dict([x, getattr(self, x)] for x in ['arch', 'distro', 'fs',
                                                     'format', 'hostname',
                                                     'major', 'minor', 'ostype',
@@ -226,7 +284,36 @@ class Image(object):
                                                     'disk_format',
                                                     'mountpoints'])
 
-    def _upload_virtio(self, virtio_base):
+    def _upload_directory(self, src_dir, dst_dir, recursive=True):
+        """
+        given a directory of files, flat plain upload thost
+        files to the guest at the destination directory.
+
+        If the directory does not exist, it will be created
+        """
+
+        self.logger.debug('Uploading "%s" to "%s"' % (
+                src_dir, dst_dir))
+
+        if not self.gfs.is_dir(dst_dir):
+            self.gfs.mkdir_p(dst_dir)
+
+        for f in os.listdir(src_dir):
+            src_file = os.path.join(src_dir, f)
+            dst_file = self.gfs.case_sensitive_path(dst_dir)
+            dst_file = os.path.join(dst_file, f)
+
+            if os.path.isfile(src_file):
+                # upload it!
+                self.logger.debug(" %s => %s" % (src_file, dst_file))
+                self.gfs.upload(src_file, dst_file)
+
+            elif os.path.isdir(fullpath):
+                if recursive is True:
+                    self._upload_directory(src_file, dst_file)
+            # otherwise skip it!
+
+    def _upload_virtio(self, virtio_base, software_hive=None):
         """
         determine what version of the virtio drivers the
         destination machine requires, and upload them onto
@@ -248,28 +335,72 @@ class Image(object):
         if not version in version_map:
             raise ValueError('No virtio drivers for version "%s"' % version)
 
-        # okay, so now grab all the files in the directory and
-        # throw them in the image somewhere.
-        file_list = {}
         source_path = os.path.join(virtio_base,
                                    version_map[version],
                                    win_arch)
 
-        self.logger.debug('Installing virtio driver files from %s' %
-                          source_path)
+        self._upload_directory(source_path, dest_path)
 
-        source_files = [f for f in os.listdir(source_path)
-                        if os.path.isfile(os.path.join(source_path, f))]
+        # we also need to handle viostor.sys specially --
+        if self.gfs.is_file(self.gfs.case_sensitive_path(
+                os.path.join(dest_path, 'viostor.sys'))):
+            # must copy this to system32/drivers
+            src_file = os.path.join(dest_path, 'viostor.sys')
+            src_file = self.gfs.case_sensitive_path(src_file)
 
-        file_list = dict([(os.path.join(source_path, f),
-                           os.path.join(dest_path, f)) for f in source_files])
+            dst_file = os.path.join(self.systemroot,
+                                    'system32/drivers')
+            dst_file = self.gfs.case_sensitive_path(dst_file)
+            dst_file = os.path.join(dst_file, 'viostor.sys')
 
-        if not self.gfs.is_dir(dest_path):
-            self.gfs.mkdir_p(dest_path)
+            self.logger.debug('Copying %s => %s' % (src_file, dst_file))
+            self.gfs.cp(src_file, dst_file)
 
-        for source, dest in file_list.items():
-            self.logger.debug('Uploading %s' % source)
-            self.gfs.upload(source, dest)
+        # now, add dest_path to the drier search path
+        if software_hive is not None:
+            h = SimpleHivex(software_hive)
+            h.navigate_to('/Microsoft/Windows/CurrentVersion')
+
+            append_data = 'c:\\v2v-virtio'
+
+            old_path = h.get_string('DevicePath')
+            new_path = None
+
+            if old_path is None:
+                new_path = append_data
+            elif append_data not in old_path:
+                new_path = '%s;%s' % (old_path, append_data)
+
+            if new_path is not None:
+                h.add_reg_expand_sz('DevicePath', new_path)
+                h.commit()
+
+            h = None
+
+        return True
+
+    def _disable_auto_reboot(self, system_hive):
+        h = SimpleHivex(system_hive)
+
+        h.navigate_to('/CurrentControlSet/Control/CrashControl', True)
+        h.add_reg_dword('AutoReboot', 0)
+
+        h.commit()
+
+    def _disable_processor_drivers(self, system_hive):
+        """
+        Not strictly necessary, perhaps, but worth doing anyway, I think.
+
+        http://blogs.msdn.com/b/virtual_pc_guy/archive/2005/10/24/484461.aspx
+        """
+
+        h = SimpleHivex(system_hive)
+
+        h.navigate_to('/CurrentControlSet/Services')
+        h.delete_subkey('Processor')
+        h.delete_subkey('Intelppm')
+
+        h.commit()
 
     def _stub_viostor(self, system_hive):
         """
@@ -290,11 +421,16 @@ class Image(object):
         # "ClassGUID"="{4D36E97B-E325-11CE-BFC1-08002BE10318}"
         # "Service"="viostor"
 
-        for subkey in ['00000000', '00020000', '00021af4']:
-            h.navigate_to('/CurrentControlSet/Control/CriticalDeviceDatabase')
-            h.add_subkey('pci#ven_1af4&dev_1001&subsys_%s' % (subkey, ))
-            h.add_reg_sz('ClassGUID', '{4D36E97B-E325-11CE-BFC1-08002BE10318}')
-            h.add_reg_sz('Service', 'viostor')
+        # for subkey in ['00000000', '00020000', '00021af4', '00021af4&rev_00']:
+        #     h.navigate_to('/CurrentControlSet/Control/CriticalDeviceDatabase')
+        #     h.add_subkey('pci#ven_1af4&dev_1001&subsys_%s' % (subkey, ))
+        #     h.add_reg_sz('ClassGUID', '{4d36e97b-e325-11ce-bfc1-08002be10318}')
+        #     h.add_reg_sz('Service', 'viostor')
+
+        h.navigate_to('/CurrentControlSet/Control/CriticalDeviceDatabase')
+        h.add_subkey('pci#ven_1af4&dev_1001&subsys_00021af4&rev_00')
+        h.add_reg_sz('ClassGUID', '{4d36e97b-e325-11ce-bfc1-08002be10318}')
+        h.add_reg_sz('Service', 'viostor')
 
         # Next, let's do the driver thing.  Should look like this
         # [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\viostor]
@@ -305,28 +441,65 @@ class Image(object):
         # "Type"=dword:00000001
         # "ImagePath"= (REG_EXPAND_SZ) "...path..."
 
-        h.navigate_to('/CurrentControlSet/Services')
-        h.add_subkey('viostor')
-        h.add_reg_dword('ErrorControl', 1)
-        h.add_reg_sz('Group', 'SCSI miniport')
-        h.add_reg_dword('Start', 0)
-        h.add_reg_dword('Tag', 0x21)
+        h.navigate_to('/CurrentControlSet/services/viostor', True)
         h.add_reg_dword('Type', 1)
-        h.add_reg_expand_sz('ImagePath', 'C:\\\\v2v-virtio\\\\VIOSTOR.SYS')
+        h.add_reg_dword('Start', 0)
+        h.add_reg_dword('ErrorControl', 1)
+        h.add_reg_dword('Tag', 64)
+        h.add_reg_expand_sz('ImagePath', 'system32\\DRIVERS\\viostor.sys')
+        h.add_reg_sz('Group', 'SCSI miniport')
 
+        # Set up default parameters
+        #
+        # Probably don't need this if we are just going to turn around do the
+        # real installation of the official drivers.  Oh well.
+        #
+        h.navigate_to('/CurrentControlSet/services/viostor/Parameters', True)
+        h.add_reg_dword('BusType', 1)
+
+        # h.add_subkey('MaxTransferSize')
+        # h.add_reg_sz('ParamDesc', 'Maximum Transfer Size')
+        # h.add_reg_sz('type', 'enum')
+        # h.add_reg_sz('default', '0')
+
+        # h.add_subkey('enum')
+        # h.add_reg_sz('0', '64  KB')
+        # h.add_reg_sz('1', '128 KB')
+        # h.add_reg_sz('2', '256 KB')
+
+        # h.navigate_to('/CurrentControlSet/Services/viostor/Parameters')
+        h.add_subkey('PnpInterface')
+        h.add_reg_dword('5', 1)
+
+        h.navigate_to('/CurrentControlSet/Services/viostor/Enum', True)
+        h.add_reg_sz('0', 'PCI\\VEN_1AF4&DEV_1001&SUBSYS_00021AF4&REV_00\\3&13c0b0c5&0&28')
+        h.add_reg_dword('Count', 1)
+        h.add_reg_dword('NextInstance', 1)
         h.commit()
 
     def _download_hive(self, hive, download_dir):
-        remote_path = os.path.join('/windows/system32/config', hive)
+        remote_path = os.path.join(self.systemroot,
+                                   'system32/config',
+                                   hive)
 
         self.logger.debug('remote_path: %s' % remote_path)
         remote_path = self.gfs.case_sensitive_path(remote_path)
-        local_path = os.path.join(download_dir,
-                                  '%s.hive' % (hive, ))
+        local_path = os.path.join(download_dir, hive)
 
         self.logger.debug('Downloading hive "%s"' % (remote_path, ))
         self.gfs.download(remote_path, local_path)
         return local_path
+
+    def _upload_hive(self, hive_path):
+        what_hive = os.path.basename(hive_path)
+        remote_path = os.path.join(self.systemroot,
+                                   'system32/config',
+                                   what_hive)
+        remote_path = self.gfs.case_sensitive_path(remote_path)
+
+
+        self.logger.debug('Uploading %s => %s' % (hive_path, remote_path))
+        self.gfs.upload(hive_path, remote_path)
 
     def _windows_common_fixups(self, virtio_base='virtio'):
         """
@@ -335,13 +508,19 @@ class Image(object):
         """
         tmpdir = tempfile.mkdtemp()
         system_hive = self._download_hive('system', tmpdir)
+        software_hive = self._download_hive('software', tmpdir)
 
         self.logger.debug('Dropped system hive in %s' % (system_hive, ))
 
-        if self._upload_virtio(virtio_base) is False:
+        if self._upload_virtio(virtio_base, software_hive) is False:
             raise ValueError('No virtio drivers for this version')
 
         self._stub_viostor(system_hive)
+        # self._disable_processor_drivers(system_hive)
+        self._disable_auto_reboot(system_hive)
+
+        self._upload_hive(system_hive)
+        self._upload_hive(software_hive)
 
     def _dev_from_root(self):
         """
