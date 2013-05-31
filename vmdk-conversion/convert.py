@@ -359,6 +359,34 @@ class WindowsConversionDriver(ConversionDriver):
 
         h.commit()
 
+    def _install_service(self, service_path, display_name):
+        """
+        Install a service on a dead windows disk
+        """
+
+        # http://support.microsoft.com/kb/103000
+        #
+        # [HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\services\<name>]
+        # "Type"=dword:00000010 (service controlled service)
+        # "Start"=dword:00000002 (scm autoload)
+        # "ErrorControl"=dword:00000001
+        # "ImagePath"="..."
+        # "DisplayName"="..."
+        # "ObjectName"="LocalSystem"
+
+        h = SimpleHivex(self.system_hive)
+
+        service_name = display_name.replace(' ', '_').lower()
+
+        h.navigate_to('/CurrentControlSet/services/%s' % service_name, True)
+        h.add_reg_dword('Type': 0x10)
+        h.add_reg_dword('Start': 0x02)
+        h.add_reg_dword('ErrorControl': 0x01)
+        h.add_reg_sz('ImagePath', service_path)
+        h.add_reg_sz('DisplayName', display_name)
+        h.add_reg_sz('ObjectName', 'LocalSystem')
+
+        h.commit()
 
 class KvmWindowsConversion(WindowsConversionDriver):
     def __init__(self, gfs):
