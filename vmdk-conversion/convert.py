@@ -1,13 +1,65 @@
 #!/usr/bin/env python
 
+import getopt
 import logging
 import os
 import struct
 import subprocess
+import sys
 import tempfile
 
+import glanceclient
 import guestfs
 import hivex
+from keystoneclient.v2_0 import client as kc
+
+
+def glance_upload(image_path, name):
+    """
+    there should probably be some more glance utility functions,
+    or output and input paths should probably be expressible as
+    glance urls or something like that.  meh.
+
+    in truth, this is likely better done in bash using the glance
+    client cli, but for some reason people aren't happy with
+    chaining together multiple tools -- they want a single
+    monolithic tool that works poorly.  So here you go -- this is
+    that.  You're welcome.
+    """
+
+    # we'll assume that credentials and whatnot are expressed
+    # in the environment already.
+    username = os.environ['OS_USERNAME']
+    password = os.environ['OS_PASSWORD']
+    tenant = os.environ['OS_TENANT_NAME']
+    auth_url = os.environ['OS_AUTH_URL']
+
+    # we'll just plain flat ignore the case where you
+    # have an environment token and not user/pass
+    kcli = kc.Client(username=username,
+                     password=password,
+                     tenant_name=tenant,
+                     auth_url=auth_url)
+
+    auth_token = kcli.auth_token
+    glance_url = kcli.service_catalog.url_for(service_type='image')
+
+    # this is sort of stupid
+    decomposed_url = glance_url.split('/')
+    if decomposed_url[-1] == 'v1':
+        decomposed_url.pop(-1)
+    glance_url = '/'.join(decomposed_url)
+
+    # push the image
+    gcli = glanceclient.Client('1', endpoint=glance_url,
+                               token=auth_token)
+
+    gimage = gcli.images.create(name=name, disk_format='qcow2',
+                                container_format='bare',
+                                is_public=False)
+
+    gimage.update(data=open(image_path, 'rb'))
+
 
 
 class SimpleHivex(object):
@@ -245,6 +297,11 @@ class ConversionDriver(object):
         self.ostype = self.gfs.inspect_get_type(self.root)
         self.arch = self.gfs.inspect_get_arch(self.root)
 
+        self.tmpdir = tempfile.mkdtemp()
+
+    def cleanup(self):
+        shutil.rmtree(self.tmpdir)
+
     def convert(self):
         raise NotImplementedError('Base class!')
 
@@ -292,9 +349,8 @@ class WindowsConversionDriver(ConversionDriver):
 
         self.systemroot = self.gfs.inspect_get_windows_systemroot(self.root)
 
-        tmpdir = tempfile.mkdtemp()
-        self.system_hive = self._download_hive('system', tmpdir)
-        self.software_hive = self._download_hive('software', tmpdir)
+        self.system_hive = self._download_hive('system', self.tmpdir)
+        self.software_hive = self._download_hive('software', self.tmpdir)
 
         self.logger.debug('System hive in %s' % (self.system_hive, ))
         self.logger.debug('Software hive in %s' % (self.software_hive, ))
@@ -379,9 +435,9 @@ class WindowsConversionDriver(ConversionDriver):
         service_name = display_name.replace(' ', '_').lower()
 
         h.navigate_to('/CurrentControlSet/services/%s' % service_name, True)
-        h.add_reg_dword('Type': 0x10)
-        h.add_reg_dword('Start': 0x02)
-        h.add_reg_dword('ErrorControl': 0x01)
+        h.add_reg_dword('Type', 0x10)
+        h.add_reg_dword('Start', 0x02)
+        h.add_reg_dword('ErrorControl', 0x01)
         h.add_reg_sz('ImagePath', service_path)
         h.add_reg_sz('DisplayName', display_name)
         h.add_reg_sz('ObjectName', 'LocalSystem')
@@ -533,6 +589,37 @@ class KvmWindowsConversion(WindowsConversionDriver):
 class XenWindowsConversion(WindowsConversionDriver):
     def convert(self):
         raise NotImplementedError('Xen?')
+
+
+class LinuxConversionDriver(ConversionDriver):
+    """
+    shared utility functions for linux converters
+    """
+    def __init__(self, gfs):
+        super(LinuxConversionDriver, self).__init__(gfs)
+
+        self.distro = self.gfs.inspect_get_distro(self.root)
+        self.mountpoints = dict(self.gfs.inspect_get_mountpoint(self.root))
+
+
+class KvmLinuxConversion(LinuxConversionDriver):
+    def init(self, gfs):
+        super(KvmLinuxConversionDriver, self).__init__(gfs)
+
+    def convert(self):
+        """
+        actual conversion of linux images to kvm.  This could verify
+        proper kernel and whatnot, but I expect there aren't many
+        (any?) distros running non-virtio enabled kernels.  Largely,
+        the only thing to be done here is fix up fstab if it's got
+        xenish looking mounts in it.
+        """
+        pass
+
+
+class XenLinxuConversion(LinuxConversionDriver):
+    def convert(self, gfs):
+        raise NotImplementedError
 
 
 class Image(object):
@@ -714,11 +801,103 @@ class Image(object):
         return destination_path
 
 
-logging.basicConfig(level=logging.DEBUG)
+if __name__ == "__main__":
+    def usagequit(program):
+        print >>sys.stderr, 'Usage: %s [options]\n' % program
+        print >>sys.stderr, 'Options:'
+        print >>sys.stderr, '-i, --input <path>     image to convert'
+        print >>sys.stderr, '-o, --output <path>    output file name (qcow2)'
+        print >>sys.stderr, '-n, --name <name>      glance name (if uploading)'
+        print >>sys.stderr, '-u, --upload           enable glance upload'
+        print >>sys.stderr, '-s, --sysprep          sysprep windows image'
+        print >>sys.stderr, '-d, --debug <1-5>      debuglevel (5 is verbose)'
+        sys.exit(1)
 
-# foo = Image('/home/rpedde/vmware/player/Slim/Slim.vmdk')
-# dest_path = foo.to_qcow2(destination_path='./win.qcow2')
-# foo = Image(dest_path, readonly=False)
+    image = None
+    output = None
+    name = None
+    upload = False
+    sysprep = False
+    debuglevel = 2
 
-foo = Image('./win.qcow2', readonly=False)
-foo.convert()
+    try:
+        opts, args = getopt.getopt(
+            sys.argv[1:], 'i:o:n:usd:', ['input=', 'output=', 'name=',
+                                         'upload', 'sysprep',
+                                         'debug='])
+    except getopt.GetoptError as err:
+        print str(err)
+        usagequit(sys.argv[0])
+
+    for o, a in opts:
+        if o in ['-i', '--input']:
+            image = a
+        elif o in ['-o', '--output']:
+            output = a
+        elif o in ['-n', '--name']:
+            name = a
+        elif o in ['-u', '--upload']:
+            upload = True
+        elif o in ['-s', '--sysprep']:
+            sysprep = True
+        elif o in ['-d', '--debug']:
+            a = int(a)
+            a = a if a < 5 else 4
+            a = a if a > 0 else 1
+            debuglevel = a
+        else:
+            print >>sys.stderr, 'Unhandled option: %s' % o
+
+    logging.basicConfig(level=[None,
+                               logging.ERROR,
+                               logging.WARNING,
+                               logging.INFO,
+                               logging.DEBUG][debuglevel])
+
+    if image is None:
+        print >>sys.stderr, 'input image (-i, --image) required'
+        sys.exit(1)
+
+    if output is None:
+        if '.' in image:
+            base = image.rsplit('.', 1)[0]
+            output = '%s.qcow2' % base
+        else:
+            output = '%s.qcow2' % image
+
+    if name is None:
+        name = os.path.basename(image).rsplit('.',1)[0]
+
+    if upload:
+        for key in ['OS_USERNAME', 'OS_PASSWORD', 'OS_TENANT_NAME',
+                    'OS_AUTH_URL']:
+            fail = False
+            if key not in os.environ:
+                fail = True
+                print >>sys.stderr, 'missing nova environment (%s)' % key
+
+        if fail is True:
+            sys.exit(1)
+
+    # let's do this thing.
+    working_image_path = image
+
+    # the function to inspect image format is curiously
+    # absent from python-guestfs, so we'll use the poor-man's
+    # image detection method...
+    if not image.lower().endswith('.qcow2'):
+        logging.getLogger().info('Converting to qcow2 format')
+        i = Image(image, readonly=True)
+        working_image_path = i.to_qcow2(destination_path=output)
+        i = None
+
+    # image is in qcow2 now, let's do the v2v migration
+    logging.getLogger().info('Performing v2v actions')
+    conv = Image(working_image_path, readonly=False)
+    conv.convert()
+    conf = None
+
+    # now we need to upload the thing.
+    if upload:
+        logging.getLogger().info('Performing image upload')
+        glance_upload(working_image_path, name=name)
