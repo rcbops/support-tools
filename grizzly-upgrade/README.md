@@ -19,8 +19,10 @@ Folsom to Grizzly can be automated (assuming a deployment on Ubuntu
 
 Our general strategy will be this:
 
+* Stop chef-client on all of the nodes to ensure ordering
 * Upload the new grizzly cookbooks
 * Update the environment to indicate that upgrade should be performed
+* Stop all openstack services on secondary infrastructure nodes if applicable.
 * Run chef client on the infra nodes
 * Run chef client on the compute nodes
 
@@ -84,8 +86,10 @@ worth disabling image uploads:
 
 ## Step 3
 
-Run chef client on the infrastructure node.  In the case of HA infra
-nodes, run chef client on both nodes before proceeding to step 4.
+In the case of HA infra nodes, first stop all openstack services running on the secondary node, beginning with monit.  
+monit, keystone, nova, glance, cinder, haproxy, and keepalived should all be stopped.  
+
+Run chef client on the primary infrastructure node, followed by any secondary nodes if applicable.
 
 Caveat:
 
