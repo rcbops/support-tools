@@ -26,7 +26,7 @@ set -e
 set -u
 set -x
 
-COOKBOOK_BRANCH=${COOKBOOK_BRANCH:-grizzly}
+COOKBOOK_BRANCH=${COOKBOOK_BRANCH:-v4.0.0}
 
 # Figure out what OS we are running, to decide if we
 # are going to run apt or yum, basically.  Cut/pasted out of the
