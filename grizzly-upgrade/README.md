@@ -41,7 +41,7 @@ Checkout (or switch branches) the rcbops grizzly cookbooks:
 ~~~~
     /root# git clone https://github.com/rcbops/chef-cookbooks
     /root# cd chef-cookbooks
-    /root/chef-cookbooks# git checkout grizzly
+    /root/chef-cookbooks# git checkout v4.0.0
     /root/chef-cookbooks# git submodule init
     /root/chef-cookbooks# git submodule update
 ~~~~
