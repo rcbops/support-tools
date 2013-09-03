@@ -60,8 +60,8 @@ if [ ! -e validation.pem ]; then
     sudo chown ${USER}: ./validation.pem
 fi
 
-scp ./validation.pem $HOST:/tmp/validation.pem
-scp /tmp/install_$HOST.sh $HOST:/tmp/install.sh
+scp -P $PORT ./validation.pem $HOST:/tmp/validation.pem
+scp -P $PORT /tmp/install_$HOST.sh $HOST:/tmp/install.sh
 
-ssh $HOST sudo /bin/bash /tmp/install.sh
-ssh $HOST sudo chef-client
+ssh -p $PORT $HOST sudo /bin/bash /tmp/install.sh
+ssh -p $PORT $HOST sudo chef-client
