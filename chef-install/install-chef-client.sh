@@ -14,6 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+if [ $# -eq 0 ]; then
+   echo "Usage: $0 <HOST> <PORT>"
+   exit 1 
+fi
+
 CLIENT_VERSION=${CLIENT_VERSION:-"11.2.0-1"}
 ENVIRONMENT=${ENVIRONMENT:-_default}
 
