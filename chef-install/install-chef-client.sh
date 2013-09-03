@@ -63,5 +63,5 @@ fi
 scp -P $PORT ./validation.pem $HOST:/tmp/validation.pem
 scp -P $PORT /tmp/install_$HOST.sh $HOST:/tmp/install.sh
 
-ssh -p $PORT $HOST sudo /bin/bash /tmp/install.sh
-ssh -p $PORT $HOST sudo chef-client
+ssh -t -p $PORT $HOST sudo /bin/bash /tmp/install.sh
+ssh -t -p $PORT $HOST sudo chef-client
