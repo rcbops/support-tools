@@ -16,6 +16,8 @@
 
 if [ $# -eq 0 ]; then
    echo "Usage: $0 <HOST> <PORT>"
+   echo
+   echo "<PORT> will default to 22 if not specified."
    exit 1 
 fi
 
