@@ -14,6 +14,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+if [ $# -eq 0 ]; then
+   echo "Usage: $0 <HOST> <PORT>"
+   echo
+   echo "<PORT> will default to 22 if not specified."
+   exit 1 
+fi
+
+HOST=$1
+PORT=$2
+
+# If PORT is not set, default to 22
+: ${PORT:="22"}
+
 CLIENT_VERSION=${CLIENT_VERSION:-"11.2.0-1"}
 ENVIRONMENT=${ENVIRONMENT:-_default}
 
@@ -22,7 +35,7 @@ MY_IP=$(ip addr show dev ${PRIMARY_INTERFACE} | awk 'NR==3 {print $2}' | cut -d 
 CHEF_FE_SSL_PORT=${CHEF_FE_SSL_PORT:-443}
 CHEF_URL=${CHEF_URL:-https://${MY_IP}:${CHEF_FE_SSL_PORT}}
 
-cat > /tmp/install_$1.sh <<EOF
+cat > /tmp/install_$HOST.sh <<EOF
 sudo apt-get install -y curl
 curl -skS -L http://www.opscode.com/chef/install.sh | bash -s - -v ${CLIENT_VERSION}
 mkdir -p /etc/chef
@@ -49,8 +62,8 @@ if [ ! -e validation.pem ]; then
     sudo chown ${USER}: ./validation.pem
 fi
 
-scp ./validation.pem $1:/tmp/validation.pem
-scp /tmp/install_$1.sh $1:/tmp/install.sh
+scp -P $PORT ./validation.pem $HOST:/tmp/validation.pem
+scp -P $PORT /tmp/install_$HOST.sh $HOST:/tmp/install.sh
 
-ssh $1 sudo /bin/bash /tmp/install.sh
-ssh $1 sudo chef-client
+ssh -t -p $PORT $HOST sudo /bin/bash /tmp/install.sh
+ssh -t -p $PORT $HOST sudo chef-client
