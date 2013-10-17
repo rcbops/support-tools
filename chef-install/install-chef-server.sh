@@ -61,6 +61,7 @@ fi
 PRIMARY_INTERFACE=$(ip route list match 0.0.0.0 | awk 'NR==1 {print $5}')
 MY_IP=$(ip addr show dev ${PRIMARY_INTERFACE} | awk 'NR==3 {print $2}' | cut -d '/' -f1)
 CHEF_UNIX_USER=${CHEF_UNIX_USER:-root}
+CHEF_UNIX_USER_PASSWORD=${CHEF_UNIX_USER_PASSWORD:-$(pwgen)}
 
 # due to http://tickets.opscode.com/browse/CHEF-3849 CHEF_FE_PORT is not used yet
 CHEF_FE_PORT=${CHEF_FE_PORT:-80}
@@ -120,12 +121,13 @@ EOF
        cat <<EOF | /opt/chef-server/embedded/bin/knife configure -i
 ${HOMEDIR}/.chef/knife.rb
 ${CHEF_URL}
+${CHEF_UNIX_USER}
 admin
-chef-webui
-${HOMEDIR}/.chef/chef-webui.pem
+${HOMEDIR}/.chef/admin.pem
 chef-validator
 ${HOMEDIR}/.chef/chef-validator.pem
 
+${CHEF_UNIX_USER_PASSWORD}
 EOF
         # setup the path
         echo 'export PATH=${PATH}:/opt/chef-server/bin' >> ${HOMEDIR}/.bash_profile
