@@ -118,8 +118,10 @@ EOF
     chown -R ${CHEF_UNIX_USER}: ${HOMEDIR}/.chef
 
     if [[ ! -e ${HOMEDIR}/.chef/knife.rb ]]; then
-        /opt/chef-server/embedded/bin/knife user create ${CHEF_UNIX_USER} --admin -f ${HOMEDIR}/.chef/${CHEF_UNIX_USER}.pem --disable-editing -p ${CHEF_UNIX_USER_PASSWORD}
-       cat <<EOF | /opt/chef-server/embedded/bin/knife configure -i -k ${HOMEDIR}/.chef/${CHEF_UNIX_USER}.pem --user ${CHEF_UNIX_USER}
+        /opt/chef-server/embedded/bin/knife user create ${CHEF_UNIX_USER} --disable-editing \
+        --user admin --key ${HOMEDIR}/.chef/admin.pem --user admin \
+        --admin -f ${HOMEDIR}/.chef/${CHEF_UNIX_USER}.pem -p ${CHEF_UNIX_USER_PASSWORD}
+       cat <<EOF | /opt/chef-server/embedded/bin/knife configure -i --key ${HOMEDIR}/.chef/${CHEF_UNIX_USER}.pem --user ${CHEF_UNIX_USER}
 ${HOMEDIR}/.chef/knife.rb
 ${CHEF_URL}
 admin
