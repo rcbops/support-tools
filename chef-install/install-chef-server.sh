@@ -121,15 +121,18 @@ EOF
         /opt/chef-server/embedded/bin/knife user create ${CHEF_UNIX_USER} --disable-editing \
         --user admin --key ${HOMEDIR}/.chef/admin.pem --server-url ${CHEF_URL} --admin \
         -f ${HOMEDIR}/.chef/${CHEF_UNIX_USER}.pem -p ${CHEF_UNIX_USER_PASSWORD}
-       cat <<EOF | /opt/chef-server/embedded/bin/knife configure -i --key ${HOMEDIR}/.chef/${CHEF_UNIX_USER}.pem --user ${CHEF_UNIX_USER}
-${HOMEDIR}/.chef/knife.rb
-${CHEF_URL}
-admin
-${HOMEDIR}/.chef/admin.pem
-chef-validator
-${HOMEDIR}/.chef/chef-validator.pem
 
-EOF
+	tee /root/.chef/knife.rb <<EOH
+log_level                :info
+log_location             STDOUT
+node_name                '${CHEF_UNIX_USER}'
+client_key               '${HOMEDIR}/.chef/${CHEF_UNIX_USER}.pem'
+validation_client_name   'chef-validator'
+validation_key           '${HOMEDIR}/.chef/chef-validator.pem'
+chef_server_url          '${CHEF_URL}'
+syntax_check_cache_path  '${HOMEDIR}/.chef/syntax_check_cache'
+cookbook_path [ '-c/cookbooks' ]
+EOH
         # setup the path
         echo 'export PATH=${PATH}:/opt/chef-server/embedded/bin' >> ${HOMEDIR}/.bash_profile
     fi
