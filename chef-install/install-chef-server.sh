@@ -61,6 +61,7 @@ fi
 PRIMARY_INTERFACE=$(ip route list match 0.0.0.0 | awk 'NR==1 {print $5}')
 MY_IP=$(ip addr show dev ${PRIMARY_INTERFACE} | awk 'NR==3 {print $2}' | cut -d '/' -f1)
 CHEF_UNIX_USER=${CHEF_UNIX_USER:-root}
+CHEF_UNIX_USER_PASSWORD=${CHEF_UNIX_USER_PASSWORD:-$(pwgen)}
 
 # due to http://tickets.opscode.com/browse/CHEF-3849 CHEF_FE_PORT is not used yet
 CHEF_FE_PORT=${CHEF_FE_PORT:-80}
@@ -117,18 +118,23 @@ EOF
     chown -R ${CHEF_UNIX_USER}: ${HOMEDIR}/.chef
 
     if [[ ! -e ${HOMEDIR}/.chef/knife.rb ]]; then
-       cat <<EOF | /opt/chef-server/embedded/bin/knife configure -i
-${HOMEDIR}/.chef/knife.rb
-${CHEF_URL}
-admin
-chef-webui
-${HOMEDIR}/.chef/chef-webui.pem
-chef-validator
-${HOMEDIR}/.chef/chef-validator.pem
+        /opt/chef-server/embedded/bin/knife user create ${CHEF_UNIX_USER} --disable-editing \
+        --user admin --key ${HOMEDIR}/.chef/admin.pem --server-url ${CHEF_URL} --admin \
+        -f ${HOMEDIR}/.chef/${CHEF_UNIX_USER}.pem -p ${CHEF_UNIX_USER_PASSWORD}
 
-EOF
+	tee /root/.chef/knife.rb <<EOH
+log_level                :info
+log_location             STDOUT
+node_name                '${CHEF_UNIX_USER}'
+client_key               '${HOMEDIR}/.chef/${CHEF_UNIX_USER}.pem'
+validation_client_name   'chef-validator'
+validation_key           '${HOMEDIR}/.chef/chef-validator.pem'
+chef_server_url          '${CHEF_URL}'
+syntax_check_cache_path  '${HOMEDIR}/.chef/syntax_check_cache'
+cookbook_path [ '-c/cookbooks' ]
+EOH
         # setup the path
-        echo 'export PATH=${PATH}:/opt/chef-server/bin' >> ${HOMEDIR}/.bash_profile
+        echo 'export PATH=${PATH}:/opt/chef-server/embedded/bin' >> ${HOMEDIR}/.bash_profile
     fi
 
     # these are only returned on a run where we actually install chef-server
