@@ -125,7 +125,7 @@ chef-validator
 ${HOMEDIR}/.chef/chef-validator.pem
 EOF
         # setup the path
-	sed -i '/export PATH=${PATH}:\/opt\/chef-server\/bin/d' ${HOMEDIR}/.bash_profile
+        sed -i '/export PATH=${PATH}:\/opt\/chef-server\/bin/d' ${HOMEDIR}/.bash_profile
         echo 'export PATH=${PATH}:/opt/chef-server/embedded/bin' >> ${HOMEDIR}/.bash_profile
         export OLDPATH=${PATH}
     fi
