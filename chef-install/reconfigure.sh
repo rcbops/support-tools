@@ -6,8 +6,8 @@ set -e
 trap exit INT
 
 # Set your controllers and computes here
-controllers=(evinfra{1,2}) 
-computes=(evcompute{1,2,4,5})
+controllers=(infra{1,2}) 
+computes=(compute{1,2,4,5})
 
 # Things to clean up
 items="{apache,openvswitch,mysql,monit,rabbitmq,nova,glance,cinder,quantum,keystone,keepalived,memcached,haproxy,chef,rsyslog}"
