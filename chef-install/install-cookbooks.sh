@@ -64,8 +64,8 @@ git checkout ${COOKBOOK_BRANCH}
 git submodule init
 git submodule update
 
-knife role from file roles/*.rb
 knife cookbook upload -a -o cookbooks
+knife role from file roles/*.rb
 
 popd
 
