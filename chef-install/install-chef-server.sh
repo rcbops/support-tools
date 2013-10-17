@@ -118,19 +118,18 @@ EOF
     chown -R ${CHEF_UNIX_USER}: ${HOMEDIR}/.chef
 
     if [[ ! -e ${HOMEDIR}/.chef/knife.rb ]]; then
-       cat <<EOF | /opt/chef-server/embedded/bin/knife configure -i
+        /opt/chef-server/embedded/bin/knife user create ${CHEF_UNIX_USER} --admin -f ${HOMEDIR}/.chef/${CHEF_UNIX_USER}.pem --disable-editing -p ${CHEF_UNIX_USER_PASSWORD}
+       cat <<EOF | /opt/chef-server/embedded/bin/knife configure -i -k ${HOMEDIR}/.chef/${CHEF_UNIX_USER}.pem --user ${CHEF_UNIX_USER}
 ${HOMEDIR}/.chef/knife.rb
 ${CHEF_URL}
-${CHEF_UNIX_USER}
 admin
 ${HOMEDIR}/.chef/admin.pem
 chef-validator
 ${HOMEDIR}/.chef/chef-validator.pem
 
-${CHEF_UNIX_USER_PASSWORD}
 EOF
         # setup the path
-        echo 'export PATH=${PATH}:/opt/chef-server/bin' >> ${HOMEDIR}/.bash_profile
+        echo 'export PATH=${PATH}:/opt/chef-server/embedded/bin' >> ${HOMEDIR}/.bash_profile
     fi
 
     # these are only returned on a run where we actually install chef-server
