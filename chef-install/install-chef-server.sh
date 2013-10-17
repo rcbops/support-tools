@@ -42,7 +42,7 @@ if [ "$(uname -p)" != "x86_64" ]; then
     exit 1
 fi
 
-CHEF_SERVER_VERSION=${CHEF_SERVER_VERSION:-11.0.8-1}
+CHEF_SERVER_VERSION=${CHEF_SERVER_VERSION:-11.0.4-1}
 
 if [[ $OS_TYPE = "ubuntu" ]]; then
     apt-get update -y --force-yes
@@ -117,7 +117,7 @@ EOF
     chown -R ${CHEF_UNIX_USER}: ${HOMEDIR}/.chef
 
     if [[ ! -e ${HOMEDIR}/.chef/knife.rb ]]; then
-       cat <<EOF | /opt/chef-server/embedded/bin/knife configure -i
+       cat <<EOF | /opt/chef-server/bin/knife configure -i
 ${HOMEDIR}/.chef/knife.rb
 ${CHEF_URL}
 admin
