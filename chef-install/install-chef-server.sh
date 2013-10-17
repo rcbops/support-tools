@@ -117,18 +117,18 @@ EOF
     chown -R ${CHEF_UNIX_USER}: ${HOMEDIR}/.chef
 
     if [[ ! -e ${HOMEDIR}/.chef/knife.rb ]]; then
-       cat <<EOF | /opt/chef-server/embedded/bin/knife configure -i
-${HOMEDIR}/.chef/knife.rb
-${CHEF_URL}
-admin
-chef-webui
-${HOMEDIR}/.chef/chef-webui.pem
-chef-validator
-${HOMEDIR}/.chef/chef-validator.pem
+        cat > ${HOMEDIR}/.chef/knife.rb <<-EOF
+	log_level :info
+	log_location STDOUT
+	node_name 'admin'
+	client_key '${HOMEDIR}/.chef/admin.pem'
+	validation_client_name 'chef-validator'
+	validation_key '${HOMEDIR}/.chef/chef-validator.pem'
+	chef_server_url '${CHEF_URL}'
+	EOF
 
-EOF
         # setup the path
-        echo 'export PATH=${PATH}:/opt/chef-server/bin' >> ${HOMEDIR}/.bash_profile
+        echo 'export PATH=${PATH}:/opt/chef-server/embedded/bin' >> ${HOMEDIR}/.bash_profile
     fi
 
     # these are only returned on a run where we actually install chef-server
