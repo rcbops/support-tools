@@ -16,7 +16,7 @@ procs=$(IFS='|'; echo "(${temp[*]})")
 
 _nuke() {
   echo "===== Nuking chef-server from orbit. It's the only way to be sure. ====="
-  ./chef-uninstall
+  ./chef-uninstall.sh
   ./install-chef-server.sh
   rm validation.pem
 }
