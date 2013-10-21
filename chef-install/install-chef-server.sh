@@ -127,16 +127,9 @@ EOF
         # setup the path
         sed -i '/export PATH=${PATH}:\/opt\/chef-server\/bin/d' ${HOMEDIR}/.bash_profile || true
         echo 'export PATH=${PATH}:/opt/chef-server/embedded/bin' >> ${HOMEDIR}/.bash_profile
-        export OLDPATH=${PATH}
+        export OLDPATH=${OLDPATH:-$PATH}
     fi
 
     # these are only returned on a run where we actually install chef-server
-
-    export PATH=${OLDPATH:-$PATH}
-    source ${HOMEDIR}/.bash_profile
-
-    # attempt to reload cookbooks/roles/environment, don't bomb if these fail
-    knife cookbook upload -o ${HOMEDIR}/chef-cookbooks/cookbooks -a || true
-    knife role from_file ${HOMEDIR}/chef-cookbooks/roles/*.rb || true
-    knife environment from_file ${ENVFILE:-env.json} || true
+    export PATH=${OLDPATH:-$PATH}:/opt/chef-server/embedded/bin
 fi
