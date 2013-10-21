@@ -84,12 +84,12 @@ node.override["chef_server"]["nginx"]["url"] = "${CHEF_URL}"
 node.override["chef_server"]["nginx"]["ssl_port"] = ${CHEF_FE_SSL_PORT}
 node.override["chef_server"]["nginx"]["non_ssl_port"] = ${CHEF_FE_PORT}
 node.override["chef_server"]["nginx"]["enable_non_ssl"] = true
-if (node['memory']['total'].to_i / 4) > ((node['chef_server']['postgresql']['shmmax'].to_i / 1024) - 2097152)
+if (node["memory"]["total"].to_i / 4) > ((node["chef_server"]["postgresql"]["shmmax"].to_i / 1024) - 2097152)
   # guard against setting shared_buffers > shmmax on hosts with installed RAM > 64GB
   # use 2GB less than shmmax as the default for these large memory machines
-  node.override['chef_server']['postgresql']['shared_buffers'] = "14336MB"
+  node.override["chef_server"]["postgresql"]["shared_buffers"] = "14336MB"
 else
-  node.override['chef_server']['postgresql']['shared_buffers'] = "#{(node['memory']['total'].to_i / 4) / (1024)}MB"
+  node.override["chef_server"]["postgresql"]["shared_buffers"] = "#{(node['memory']['total'].to_i / 4) / (1024)}MB"
 end
 node.override["erchef"]["s3_url_ttl"] = 3600
 EOF
