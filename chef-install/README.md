@@ -22,13 +22,13 @@ It could almost certainly be made to work on Fedora.  I don't use
 Fedora or have enough interest in fedora to suss out the right
 platform detection stuff.  Patches welcome.
 
-By default, this script installs chef 11.0.4-1 with randomly generated
+By default, this script installs chef 11.0.8-1 with randomly generated
 passwords, and a knife config set up for the root user.
 
 The following environment variables can control the behavior of the
 installation:
 
-* CHEF_SERVER_VERSION (defaults to 11.0.4-1)
+* CHEF_SERVER_VERSION (defaults to 11.0.8-1)
 * CHEF_URL (defaults to https://<ip of default gw iface>:443)
 * CHEF_WEBUI_PASSWORD (randomly generated)
 * CHEF_AMQP_PASSWORD (randomly generated)
