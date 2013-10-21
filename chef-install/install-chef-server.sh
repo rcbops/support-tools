@@ -91,6 +91,7 @@ if (node['memory']['total'].to_i / 4) > ((node['chef_server']['postgresql']['shm
 else
   node.override['chef_server']['postgresql']['shared_buffers'] = "#{(node['memory']['total'].to_i / 4) / (1024)}MB"
 end
+node.override["erchef"]["s3_url_ttl"] = 3600
 EOF
 
     HOMEDIR=$(getent passwd ${CHEF_UNIX_USER} | cut -d: -f6)
