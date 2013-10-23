@@ -7,7 +7,7 @@ trap exit INT
 
 # Set your controllers and computes here
 controllers=(infra{1,2}) 
-computes=(compute{1,2,4,5})
+computes=(compute1)
 
 # Things to clean up
 items="{apache,openvswitch,mysql,monit,rabbitmq,nova,glance,cinder,quantum,keystone,keepalived,memcached,haproxy,chef,rsyslog}"
