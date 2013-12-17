@@ -39,6 +39,7 @@ set -u
 # Set the full path to the MYSQL commands
 MYSQLDUMP=$(which mysqldump)
 MYSQL=$(which mysql)
+TAR=$(which tar)
 
 # If a my.cnf file is not found, force the user to enter the mysql root password
 if [ ! -f "${HOME}/.my.cnf" ];then
@@ -66,9 +67,23 @@ pushd ${DB_BACKUP_DIR}
 # Backup all databases individually
 for db in ${DB_NAMES};do
     echo "Performing a Database Backup on ${db}"
+    if [ -f "${db}.sql" ];then
+        echo "Moving old Database Backup to ${db}.sql.old"
+        mv ${db}.sql ${db}.sql.old
+    fi
     ${MYSQLDUMP} ${db} > ${db}.sql
 done
 
 popd
 
+# Create an archive of the new backup.
+echo "Creating an Archive of the Database Backup Directory"
+if [ -f "OpenstackDatabases.tgz" ];then
+    echo "Moving old Database archive to OpenstackDatabases.tgz.old"
+    mv OpenstackDatabases.tgz OpenstackDatabases.tgz.old
+fi
+${TAR} -cvzf OpenstackDatabases.tgz ${DB_BACKUP_DIR}
+
+echo "Done."
 exit 0
+

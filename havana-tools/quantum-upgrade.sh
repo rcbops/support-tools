@@ -46,6 +46,11 @@ fi
 
 # Set the Backup Directory
 DB_BACKUP_DIR=${DB_BACKUP_DIR:-"/root/database_backups"}
+if [ ! -d "${DB_BACKUP_DIR}" ];then
+    echo "Backup directory \"${DB_BACKUP_DIR}\" was not found," \
+         " Maybe Try Setting: \"export DB_BACKUP_DIR=/path/to/dir\""
+    exit 1
+fi
 
 # Set the name of the neutron service
 NEUTRON_SERVICE=$(ls /etc/init.d/ | grep -E "neutron-server")
@@ -106,3 +111,4 @@ if [ "$(service ${NEUTRON_SERVICE} status | grep 'stop/waiting')" ];then
 fi
 
 exit 0
+
