@@ -125,12 +125,8 @@ admin
 chef-validator
 ${HOMEDIR}/.chef/chef-validator.pem
 EOF
-        # setup the path
-        sed -i '/export PATH=${PATH}:\/opt\/chef-server\/bin/d' ${HOMEDIR}/.bash_profile || true
-        echo 'export PATH=${PATH}:/opt/chef-server/embedded/bin' >> ${HOMEDIR}/.bash_profile
-        export OLDPATH=${OLDPATH:-$PATH}
     fi
-
-    # these are only returned on a run where we actually install chef-server
-    export PATH=${OLDPATH:-$PATH}:/opt/chef-server/embedded/bin
 fi
+
+# Idempotently symlink knife into /usr/bin so it's in the path
+ln -sf /opt/chef-server/embedded/bin/knife /usr/bin/knife
