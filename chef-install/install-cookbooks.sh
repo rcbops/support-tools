@@ -26,7 +26,7 @@ set -e
 set -u
 set -x
 
-COOKBOOK_BRANCH=${COOKBOOK_BRANCH:-v4.1.2}
+COOKBOOK_BRANCH=${COOKBOOK_BRANCH:-v4.2.1}
 
 # Figure out what OS we are running, to decide if we
 # are going to run apt or yum, basically.  Cut/pasted out of the
