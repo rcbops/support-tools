@@ -42,7 +42,7 @@ if [ "$(uname -p)" != "x86_64" ]; then
     exit 1
 fi
 
-CHEF_SERVER_VERSION=${CHEF_SERVER_VERSION:-11.0.8-1}
+CHEF_SERVER_VERSION=${CHEF_SERVER_VERSION:-11.0.10-1}
 
 if [[ $OS_TYPE = "ubuntu" ]]; then
     apt-get update -y --force-yes
