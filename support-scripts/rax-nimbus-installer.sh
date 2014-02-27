@@ -40,19 +40,22 @@
 set -e
 set -u
 
+
 WORKING_DIR="/tmp"
 NIMBUS_INSTALLER_TAR="${WORKING_DIR}/nimbus-installer.tar.gz"
 NIMBUS_INIT="/etc/init.d/nimbus"
 
 
 # Check for the nimbus file
-if [ ! -f "${NIMBUS_INSTALLER_TAR}" ];then
+if [[ ! -f "${NIMBUS_INSTALLER_TAR}" ]];then
   echo "The nimbus tar ball was not found at \"${NIMBUS_INSTALLER_TAR}\""
   exit 1
 fi
 
+
 # Install cURL if its not found
 apt-get -y install curl || yum -y install curl
+
 
 pushd /tmp
   tar -zxvf ${NIMBUS_INSTALLER_TAR}
@@ -62,7 +65,7 @@ popd
 pushd ${WORKING_DIR}/nimbus-installer
 
   # If Nimbus is installed stop it
-  if [ -f "${NIMBUS_INIT}" ];then
+  if [[ -f "${NIMBUS_INIT}" ]];then
     ${NIMBUS_INIT} stop
   fi
 
@@ -73,26 +76,14 @@ pushd ${WORKING_DIR}/nimbus-installer
                                  -D "$(cat /root/.rackspace/datacenter | tr [A-Z] [a-z] | tr [:digit:] ' ')"
 popd
 
-# Configure the Installed Nimbus Software
-NIMBUS_CDM="/opt/nimsoft/probes/system/cdm/cdm.cfg"
-if [ -f "${NIMBUS_CDM}" ];then
-  sed "/<proc_q_len>/,/<\/proc_q_len>/ s/threshold = 16/threshold = 48/" ${NIMBUS_CDM} > ${WORKING_DIR}/cdm.cfg
-  mv ${WORKING_DIR}/cdm.cfg ${NIMBUS_CDM}
-fi
-
-# Configure the Nimbus SNMPT
-NIMBUS_SNMPT="/opt/nimsoft/probes/gateway/snmptd/snmptd.cfg"
-if [ -f "${NIMBUS_SNMPT}" ];then
-  sed -e "63s/yes/no/;" ${NIMBUS_SNMPT} > ${WORKING_DIR}/snmptd.cfg
-  mv ${WORKING_DIR}/snmptd.cfg ${NIMBUS_SNMPT}
-fi
 
 # Update the nimbus run levels.
-if [ "${SYSTEM}" == "RHEL" ];then
+if [[ "$(grep -i -e redhat -e centos /etc/redhat-release)" ]];then
   chkconfig nimbus on
-elif [ "${SYSTEM}" == "DEB" ];then
-  update-rc.d nimus defaults 99
+elif [[ "$(grep -i ubuntu /etc/lsb-release)" ]];then
+  update-rc.d nimbus defaults 99
 fi
+
 
 # Start the Nimbus Service
 ${NIMBUS_INIT} start
