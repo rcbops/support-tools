@@ -73,7 +73,7 @@ pushd ${WORKING_DIR}/nimbus-installer
   sudo python nimbusinstaller.py -A "$(cat /root/.rackspace/customer_number)" \
                                  -S "$(cat /root/.rackspace/server_number)" \
                                  -I "$(curl -s icanhazip.com)" \
-                                 -D "$(cat /root/.rackspace/datacenter | tr [A-Z] [a-z] | tr [:digit:] ' ')"
+                                 -D "rpc"
 popd
 
 
