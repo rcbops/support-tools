@@ -81,7 +81,7 @@ popd
 if [[ "$(grep -i -e redhat -e centos /etc/redhat-release)" ]];then
   chkconfig nimbus on
 elif [[ "$(grep -i ubuntu /etc/lsb-release)" ]];then
-  update-rc.d nimbus defaults 99
+  update-rc.d nimbus start 99 2 3 4 5 . stop 99 0 1 6 .
 fi
 
 
