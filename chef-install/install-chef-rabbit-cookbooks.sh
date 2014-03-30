@@ -175,6 +175,17 @@ function rabbit_setup() {
 
   rabbitmqctl add_user chef "${RMQ_PW}"
   rabbitmqctl set_permissions -p /chef chef '.*' '.*' '.*'
+  
+  cat > /etc/rabbitmq/rabbitmq-env.conf <<EOF
+NODE_IP_ADDRESS=0.0.0.0
+NODE_PORT=5672
+CONFIG_FILE=/etc/rabbitmq/rabbitmq
+MNESIA_BASE=/var/lib/rabbitmq/mnesia
+EOF
+  /etc/init.d/rabbitmq-server stop
+  sleep 2
+  /etc/init.d/rabbitmq-server start
+
 }
 
 if [ "$(uname -p)" != "x86_64" ]; then
@@ -204,6 +215,8 @@ nginx["non_ssl_port"] = 4080
 nginx["enable_non_ssl"] = false
 rabbitmq["enable"] = false
 rabbitmq["password"] = "${RMQ_PW}"
+rabbitmq['node_ip_address'] = "#{node['ipaddress']}"
+rabbitmq['vip'] = "#{node['ipaddress']}"
 chef_server_webui['enable'] = false
 chef_server_webui['worker_processes'] = 1
 chef_server_webui['web_ui_admin_default_password'] = "${CHEF_PW}"
@@ -280,4 +293,5 @@ chef environment file as an override.
 
 # Exit Zero
 exit 0
+
 
