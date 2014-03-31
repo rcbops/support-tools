@@ -41,7 +41,7 @@ set -e
 set -u
 
 
-DATACENTER="rpc"
+DATACENTER=${DATACENTER:-"rpc"}
 WORKING_DIR="/tmp"
 NIMBUS_INSTALLER_TAR="${WORKING_DIR}/nimbus-installer.tar.gz"
 NIMBUS_INIT="/etc/init.d/nimbus"
