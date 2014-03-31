@@ -41,6 +41,7 @@ set -e
 set -u
 
 
+DATACENTER=${DATACENTER:-"rpc"}
 WORKING_DIR="/tmp"
 NIMBUS_INSTALLER_TAR="${WORKING_DIR}/nimbus-installer.tar.gz"
 NIMBUS_INIT="/etc/init.d/nimbus"
@@ -73,7 +74,7 @@ pushd ${WORKING_DIR}/nimbus-installer
   sudo python nimbusinstaller.py -A "$(cat /root/.rackspace/customer_number)" \
                                  -S "$(cat /root/.rackspace/server_number)" \
                                  -I "$(curl -s icanhazip.com)" \
-                                 -D "rpc"
+                                 -D ${DATACENTER}
 popd
 
 
