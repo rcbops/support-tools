@@ -40,10 +40,8 @@ Tools
     of the neutron network. When the script is complete, the built instance(s) will be 
     removed. All output for the scirpt is printed to stdout in a human readable format.
     
+    Usage: 
+    
     .. code-block:: bash
     
         bash neutron_network_test.sh
-        
-
-        
-        
