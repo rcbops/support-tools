@@ -70,7 +70,7 @@ Tenant Name: ${TENANT_NAME}
 Password: ${PASSWD}
 "
 
-cat > $(pwd)/openrc-customer2 <<EOF
+cat > $(pwd)/openrc-customer-${USER_NAME} <<EOF
 # CUSTOMER OPENSTACK ENVS
 export OS_USERNAME=${USER_NAME}
 export OS_PASSWORD=${PASSWD}
