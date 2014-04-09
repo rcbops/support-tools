@@ -38,6 +38,15 @@ set -u
 # Set this to override the URL to download chef-server
 # CHEF_URL=""
 
+# Set to override the download URI for chef
+# CHEF_SERVER_PACKAGE_URL=""
+
+# Enable nightly builds of chef, true or false, default false
+# CHEF_NIGHTLIES=""
+
+# Enable pre-release builds of chef, true or false, default false
+# CHEF_PRERELEASE=""
+
 # Set this to override the PATH to the cookbooks on the local disk
 # COOKBOOK_PATH=""
 
@@ -59,7 +68,11 @@ set -u
 # Chef Settings
 CHEF_PW=${CHEF_PW:-$(tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c 9)}
 CHEF_URL=${CHEF_URL:-"https://www.opscode.com"}
-COOKBOOK_PATH=${COOKBOOK_PATH:-"/opt/rpc"}
+CHEF_SERVER_VERSION=${CHEF_SERVER_VERSION:-"11.0.10-1"}
+CHEF_CLIENT_VERSION=${CHEF_CLIENT_VERSION:-"11.10.4-1"}
+CHEF_PRERELEASE=${CHEF_PRERELEASE:-"false"}
+CHEF_NIGHTLIES=${CHEF_NIGHTLIES:-"false"}
+COOKBOOK_PATH=${COOKBOOK_PATH:-"/opt/rpcs"}
 
 # Rabbit Settings
 RMQ_PW=${RMQ_PW:-"guest"}
@@ -68,7 +81,7 @@ RELEASE="${RABBIT_URL}/releases/rabbitmq-server/v3.1.5"
 RABBIT_RELEASE=${RABBIT_RELEASE:-$RELEASE}
 
 # Set Cookbook Version
-COOKBOOK_VERSION=${COOKBOOK_VERSION:-v4.2.1}
+COOKBOOK_VERSION=${COOKBOOK_VERSION:-v4.2.2}
 
 # Make the system key used for bootstrapping self
 ssh-keygen -t rsa -f /root/.ssh/id_rsa -N ''
@@ -76,8 +89,19 @@ pushd /root/.ssh/
 cat id_rsa.pub | tee -a authorized_keys
 popd
 
+
 # Package Install
 # ==========================================================================
+# Build the omni truck API url for installing chef
+function build_chef_url() {
+  CHEF_PATH="${CHEF_URL}/chef/${CHEF_DISTRO}"
+  CHEF_OPTIONS="&v=${CHEF_SERVER_VERSION}&prerelease=${CHEF_PRERELEASE}&nightlies=${CHEF_NIGHTLIES}"
+  CHEF="${CHEF_PATH}${CHEF_OPTIONS}"
+  export CHEF_SERVER_PACKAGE_URL=${CHEF_SERVER_PACKAGE_URL:-$CHEF}
+
+}
+
+
 function install_apt_packages() {
   apt-get update && apt-get install -y git curl erlang erlang-nox wget
   # Install RabbitMQ Repo
@@ -95,11 +119,12 @@ function install_apt_packages() {
   rabbit_setup
 
   # Download/Install Chef
-  CHEF="${CHEF_URL}/chef/download-server?p=ubuntu&pv=12.04&m=x86_64"
-  CHEF_SERVER_PACKAGE_URL=${CHEF_SERVER_PACKAGE_URL:-$CHEF}
+  export CHEF_DISTRO="download-server?p=ubuntu&pv=12.04&m=x86_64"
+  build_chef_url
   wget -O /tmp/chef_server.deb ${CHEF_SERVER_PACKAGE_URL}
   dpkg -i /tmp/chef_server.deb
   rm /tmp/chef_server.deb
+
 }
 
 
@@ -156,12 +181,13 @@ function install_yum_packages() {
   rabbit_setup
 
   # Download/Install Chef
-  CHEF="${CHEF_URL}/chef/download-server?p=el&pv=6&m=x86_64"
-  CHEF_SERVER_PACKAGE_URL=${CHEF_SERVER_PACKAGE_URL:-$CHEF}
+  export CHEF_DISTRO="download-server?p=el&pv=6&m=x86_64"
+  build_chef_url
   wget -O /tmp/chef_server.rpm ${CHEF_SERVER_PACKAGE_URL}
   if [ ! "$(rpm -qa | grep chef-server)" ];then
     yum install -y /tmp/chef_server.rpm
   fi
+
 }
 
 function rabbit_setup() {
@@ -227,7 +253,7 @@ EOF
 chef-server-ctl reconfigure
 
 # Install Chef Client
-bash <(wget -O - http://opscode.com/chef/install.sh)
+bash <(wget -O - http://opscode.com/chef/install.sh) -v ${CHEF_CLIENT_VERSION}
 
 # Configure Knife
 if [ ! -d "/root/.chef" ];then
@@ -293,5 +319,4 @@ chef environment file as an override.
 
 # Exit Zero
 exit 0
-
 
