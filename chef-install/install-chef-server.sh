@@ -25,13 +25,13 @@ pwgen() {
     tr -dc A-Za-z0-9_ < /dev/urandom | head -c ${l} | xargs
 }
 
-if [ -e /etc/lsb-release ]; then
+if [ -f "/etc/system-release-cpe" ]; then
+    OS_TYPE=$(cat /etc/system-release-cpe | cut -d ":" -f 3)
+    OS_VER=6
+elif [ -e /etc/lsb-release ]; then
     source /etc/lsb-release
     OS_TYPE=${DISTRIB_ID~}
     OS_VER=${DISTRIB_RELEASE}
-elif [ -f "/etc/system-release-cpe" ]; then
-    OS_TYPE=$(cat /etc/system-release-cpe | cut -d ":" -f 3)
-    OS_VER=6
 else
     echo "Cannot determine operating system"
     exit 1
