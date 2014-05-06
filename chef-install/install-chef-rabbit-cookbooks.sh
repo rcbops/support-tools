@@ -62,6 +62,9 @@ set -u
 # Set this to override the URL path to the release of RabbitMQ
 # RABBIT_RELEASE=""
 
+# Set this to override the URI for RabbitMQ
+# RABBITMQ_PACKAGE_URL=""
+
 # Begin the Install Process
 # ============================================================================
 
@@ -110,7 +113,7 @@ function install_apt_packages() {
   apt-key add /tmp/rabbitmq.asc
 
   RABBITMQ="${RABBIT_RELEASE}/rabbitmq-server_3.1.5-1_all.deb"
-  wget -O /tmp/rabbitmq.deb ${RABBITMQ}
+  wget -O /tmp/rabbitmq.deb ${RABBITMQ_PACKAGE_URL:-$RABBITMQ}
   # Install Packages
   dpkg -i /tmp/rabbitmq.deb
   rm /tmp/rabbitmq.deb
@@ -170,7 +173,7 @@ function install_yum_packages() {
   rpm --import ${RABBITMQ_KEY}
 
   RABBITMQ="${RABBIT_RELEASE}/rabbitmq-server-3.1.5-1.noarch.rpm"
-  wget -O /tmp/rabbitmq.rpm ${RABBITMQ}
+  wget -O /tmp/rabbitmq.rpm ${RABBITMQ_PACKAGE_URL:-$RABBITMQ}
   if [ ! "$(rpm -qa | grep rabbitmq-server)" ];then
     rpm -Uvh /tmp/rabbitmq.rpm
   fi
